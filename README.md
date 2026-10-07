@@ -24,3 +24,7 @@ Este projeto usa o Supabase para autenticação por e-mail/senha, serviços, hor
 - `SUPABASE_ADMIN_EMAIL`: e-mail autorizado a abrir o painel `/admin`.
 
 Para uma execução local fora do WebDev, copie `.env.example` para `.env`, preencha os valores no ambiente local e nunca faça commit do ficheiro `.env`. Execute também o conteúdo de `supabase/schema.sql` no SQL Editor do Supabase. O painel `/admin` oferece criação de conta, login, edição/pausa de serviços, alteração de preços, gestão de horários e atualização do estado das reservas. As alterações públicas e administrativas usam Supabase Realtime quando o projeto está publicado.
+
+### Recibos por e-mail
+
+O painel `/admin` gera recibos PDF e envia-os como anexo pelo Resend. Configure `RESEND_API_KEY` e `RESEND_FROM_EMAIL` como variáveis privadas no Render. O endereço remetente precisa pertencer a um domínio verificado no Resend; configure os registos DNS solicitados pelo Resend antes de enviar a clientes. O e-mail do cliente é obrigatório para a entrega e o CPF é opcional. Os dados do recibo não são gravados no banco de dados; o CPF é usado somente no PDF enviado.

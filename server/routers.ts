@@ -5,6 +5,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, publicProcedure, router } from "./_core/trpc";
 import { createBooking, createQuote, getDb, listBookings, listServices, listSlots, removeSlot, saveService, saveSlot, setBookingStatus } from "./db";
+import { sendReceipt } from "./receipts";
 
 const serviceInput = z.object({
   id: z.number().optional(), slug: z.string().min(2).max(120), name: z.string().min(2).max(160), category: z.string().min(2).max(80), description: z.string().min(10), icon: z.string().min(2).max(40), priceFrom: z.number().nonnegative().nullable().optional(), priceMode: z.enum(["fixed", "from", "quote"]), active: z.boolean(),
@@ -50,6 +51,18 @@ export const appRouter = router({
     saveSlot: adminProcedure.input(z.object({ id: z.number().optional(), date: z.string().length(10), time: z.string().length(5), status: z.enum(["available", "blocked", "booked"]), note: z.string().max(255).optional() })).mutation(({ input }) => saveSlot(input)),
     blockSlot: adminProcedure.input(z.object({ id: z.number() })).mutation(({ input }) => removeSlot(input.id)),
     setBookingStatus: adminProcedure.input(z.object({ id: z.number(), status: z.enum(["pending", "confirmed", "cancelled"]) })).mutation(({ input }) => setBookingStatus(input.id, input.status)),
+    sendReceipt: adminProcedure.input(z.object({
+      customerName: z.string().trim().min(2).max(160),
+      customerEmail: z.string().trim().email().max(320),
+      customerCpf: z.string().trim().max(18).optional(),
+      serviceDescription: z.string().trim().min(5).max(1500),
+      amount: z.number().finite().positive().max(10_000_000),
+      paidAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(value => {
+        const [year, month, day] = value.split("-").map(Number);
+        const date = new Date(Date.UTC(year, month - 1, day));
+        return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+      }, "Informe uma data válida."),
+    })).mutation(({ input }) => sendReceipt(input)),
   }),
 });
 
