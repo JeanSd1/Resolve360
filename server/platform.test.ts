@@ -51,4 +51,12 @@ describe("current platform integration", () => {
     vi.stubEnv("MANUS_PROJECT_ID", "different-project");
     expect(await sdk.verifySession(token)).toBeNull();
   });
+  it("silently ignores legacy sessions when Manus authentication is not configured", async () => {
+    vi.stubEnv("MANUS_JWT_SECRET", "");
+    const warning = vi.spyOn(console, "warn");
+
+    await expect(sdk.verifySession("stale-manus-session-cookie")).resolves.toBeNull();
+
+    expect(warning).not.toHaveBeenCalled();
+  });
 });
