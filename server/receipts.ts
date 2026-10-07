@@ -128,8 +128,21 @@ export async function sendReceipt(input: ReceiptInput) {
   });
 
   if (!response.ok) {
-    console.error(`[Receipts] Resend returned HTTP ${response.status}`);
-    throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "O e-mail do recibo não foi enviado. Verifique a configuração do Resend." });
+    const responseBody = await response.text();
+    let providerMessage = responseBody;
+    try {
+      const parsed = JSON.parse(responseBody) as { message?: unknown; name?: unknown };
+      if (typeof parsed.message === "string") providerMessage = parsed.message;
+      else if (typeof parsed.name === "string") providerMessage = parsed.name;
+    } catch {
+      providerMessage = responseBody;
+    }
+    const detail = providerMessage.replace(/\s+/g, " ").slice(0, 400) || "sem detalhes do provedor";
+    console.error(`[Receipts] Resend returned HTTP ${response.status}: ${detail}`);
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: `Resend recusou o envio (HTTP ${response.status}): ${detail}`,
+    });
   }
 
   return { receiptNumber };
