@@ -19,10 +19,10 @@ export const decodeOAuthState = (state: string): OAuthState => {
 // Substitua estes três valores pelos seus contactos reais antes de publicar.
 export const CONTACT = {
   name: "Jean Durgante",
-  email: "seuemail@email.com",
+  email: "jean.d.serres@gmail.com",
   instagram: "@seu_perfil",
-  whatsappDisplay: "(51) 9XXXX-XXXX",
-  whatsappNumber: "5551999999999",
+  whatsappDisplay: "(51) 98168-1426",
+  whatsappNumber: "5551981681426",
 };
 
 export const DEFAULT_SERVICES = [
