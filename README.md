@@ -27,4 +27,4 @@ Para uma execução local fora do WebDev, copie `.env.example` para `.env`, pree
 
 ### Recibos por e-mail
 
-O painel `/admin` gera recibos PDF e envia-os como anexo pelo Resend. Configure `RESEND_API_KEY` e `RESEND_FROM_EMAIL` como variáveis privadas no Render. O endereço remetente precisa pertencer a um domínio verificado no Resend; configure os registos DNS solicitados pelo Resend antes de enviar a clientes. O e-mail do cliente é obrigatório para a entrega e o CPF é opcional. Os dados do recibo não são gravados no banco de dados; o CPF é usado somente no PDF enviado.
+O painel `/admin` gera recibos PDF e envia-os como anexo pelo Resend. Configure `RESEND_API_KEY`, `RESEND_FROM_EMAIL` e `RECEIPT_ISSUER_CPF` como variáveis privadas no Render. O endereço remetente precisa pertencer a um domínio verificado no Resend; configure os registos DNS solicitados pelo Resend antes de enviar a clientes. O e-mail do cliente é obrigatório para a entrega e o CPF do cliente é opcional. Os dados do recibo não são gravados no banco de dados; os CPFs são usados somente no PDF enviado.

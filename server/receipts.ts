@@ -38,7 +38,7 @@ function formatAmount(value: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
 }
 
-function createReceiptPdf(receipt: ReceiptInput & { receiptNumber: string }) {
+function createReceiptPdf(receipt: ReceiptInput & { receiptNumber: string; issuerCpf: string }) {
   const document = new PDFDocument({ size: "A4", margin: 56 });
   const chunks: Buffer[] = [];
   return new Promise<Buffer>((resolve, reject) => {
@@ -66,6 +66,7 @@ function createReceiptPdf(receipt: ReceiptInput & { receiptNumber: string }) {
     document.moveDown(1.5).strokeColor("#dce4ef").moveTo(56, document.y).lineTo(539, document.y).stroke();
     document.moveDown(1.2).font("Helvetica-Bold").fontSize(11).fillColor("#14213d").text(`Emitido por: ${CONTACT.name}`);
     document.font("Helvetica").fontSize(10).fillColor("#526178")
+      .text(`CPF: ${receipt.issuerCpf}`)
       .text(`Contato: ${CONTACT.whatsappDisplay} · ${CONTACT.email}`);
     document.moveDown(1.2).fontSize(10).fillColor("#334155")
       .text("Este documento serve como comprovante de quitação do serviço descrito e do valor informado.");
@@ -91,11 +92,19 @@ export async function sendReceipt(input: ReceiptInput) {
       message: "Configure RESEND_API_KEY e RESEND_FROM_EMAIL no Render para enviar recibos.",
     });
   }
+  if (!ENV.receiptIssuerCpf) {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: "Configure RECEIPT_ISSUER_CPF no Render para incluir o CPF do prestador no recibo.",
+    });
+  }
 
+  const issuerCpf = formatCpf(ENV.receiptIssuerCpf);
   const receiptNumber = `${input.paidAt.slice(0, 4)}-${randomUUID().replace(/-/g, "").slice(0, 12).toUpperCase()}`;
   const pdf = await createReceiptPdf({
     ...input,
     customerCpf: input.customerCpf ? formatCpf(input.customerCpf) : undefined,
+    issuerCpf,
     receiptNumber,
   });
   const response = await fetch("https://api.resend.com/emails", {

@@ -16,4 +16,5 @@ export const ENV = {
   get supabaseAdminEmail() { return process.env.SUPABASE_ADMIN_EMAIL ?? ""; },
   get resendApiKey() { return process.env.RESEND_API_KEY ?? ""; },
   get resendFromEmail() { return process.env.RESEND_FROM_EMAIL ?? ""; },
+  get receiptIssuerCpf() { return process.env.RECEIPT_ISSUER_CPF ?? ""; },
 };

@@ -19,6 +19,7 @@ describe("receipt email delivery", () => {
   it("creates a PDF and sends it as an attachment through Resend", async () => {
     vi.stubEnv("RESEND_API_KEY", "test-resend-key");
     vi.stubEnv("RESEND_FROM_EMAIL", "JeanTech <receipts@example.com>");
+    vi.stubEnv("RECEIPT_ISSUER_CPF", "01295755009");
     const request = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({ id: "email-id" }), { status: 200 }));
     vi.stubGlobal("fetch", request);
 
@@ -36,6 +37,7 @@ describe("receipt email delivery", () => {
   it("refuses to send when the sender credentials are not configured", async () => {
     vi.stubEnv("RESEND_API_KEY", "");
     vi.stubEnv("RESEND_FROM_EMAIL", "");
+    vi.stubEnv("RECEIPT_ISSUER_CPF", "01295755009");
     const request = vi.fn<typeof fetch>();
     vi.stubGlobal("fetch", request);
 
@@ -46,6 +48,7 @@ describe("receipt email delivery", () => {
   it("rejects invalid CPF values without contacting Resend", async () => {
     vi.stubEnv("RESEND_API_KEY", "test-resend-key");
     vi.stubEnv("RESEND_FROM_EMAIL", "JeanTech <receipts@example.com>");
+    vi.stubEnv("RECEIPT_ISSUER_CPF", "01295755009");
     const request = vi.fn<typeof fetch>();
     vi.stubGlobal("fetch", request);
 
@@ -56,8 +59,20 @@ describe("receipt email delivery", () => {
   it("reports provider errors instead of showing a successful send", async () => {
     vi.stubEnv("RESEND_API_KEY", "test-resend-key");
     vi.stubEnv("RESEND_FROM_EMAIL", "JeanTech <receipts@example.com>");
+    vi.stubEnv("RECEIPT_ISSUER_CPF", "01295755009");
     vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockResolvedValue(new Response("", { status: 422 })));
 
     await expect(sendReceipt(receiptInput)).rejects.toThrow("O e-mail do recibo não foi enviado");
+  });
+
+  it("refuses to send when the provider CPF has not been configured", async () => {
+    vi.stubEnv("RESEND_API_KEY", "test-resend-key");
+    vi.stubEnv("RESEND_FROM_EMAIL", "JeanTech <receipts@example.com>");
+    vi.stubEnv("RECEIPT_ISSUER_CPF", "");
+    const request = vi.fn<typeof fetch>();
+    vi.stubGlobal("fetch", request);
+
+    await expect(sendReceipt(receiptInput)).rejects.toThrow("Configure RECEIPT_ISSUER_CPF");
+    expect(request).not.toHaveBeenCalled();
   });
 });
