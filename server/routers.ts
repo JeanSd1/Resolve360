@@ -1,10 +1,11 @@
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { DEFAULT_SERVICES } from "@shared/const";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, publicProcedure, router } from "./_core/trpc";
-import { createBooking, createQuote, getDb, listBookings, listServices, listSlots, removeSlot, saveService, saveSlot, setBookingStatus } from "./db";
+import { createBooking, createQuote, listBookings, listServices, listSlots, removeSlot, saveService, saveSlot, setBookingStatus } from "./db";
 import { sendReceipt } from "./receipts";
 
 const serviceInput = z.object({
@@ -26,24 +27,20 @@ export const appRouter = router({
   }),
   availability: router({
     list: publicProcedure.input(z.object({ fromDate: z.string().optional(), toDate: z.string().optional() }).nullish()).query(async ({ input }) => {
-      const rows = await listSlots(input?.fromDate, input?.toDate);
-      if (rows.length || await getDb()) return rows;
-      const now = new Date();
-      const fallback: Array<{ id: number; date: string; time: string; status: "available" }> = [];
-      for (let offset = 1; offset <= 21; offset += 1) {
-        const date = new Date(now); date.setDate(now.getDate() + offset);
-        if ([0, 6].includes(date.getDay())) continue;
-        const iso = date.toISOString().slice(0, 10);
-        for (const time of ["09:00", "11:00", "14:00", "16:00"]) fallback.push({ id: Number(`${offset}${time.slice(0, 2)}`), date: iso, time, status: "available" });
-      }
-      return fallback;
+      return listSlots(input?.fromDate, input?.toDate);
     }),
   }),
   quotes: router({
     create: publicProcedure.input(z.object({ customerName: z.string().max(160).optional(), customerPhone: z.string().max(40).optional(), customerEmail: z.string().email().max(320).optional().or(z.literal("")), summary: z.string().min(3).max(5000), estimate: z.number().nonnegative().optional() })).mutation(async ({ input }) => { const id = await createQuote(input); return { success: id !== null, id }; }),
   }),
   bookings: router({
-    create: publicProcedure.input(z.object({ slotId: z.number(), date: z.string().min(10), time: z.string().min(4), customerName: z.string().min(2).max(160), customerPhone: z.string().min(8).max(40), customerEmail: z.string().email().max(320).optional().or(z.literal("")), serviceSummary: z.string().max(1000).optional() })).mutation(({ input }) => createBooking(input)),
+    create: publicProcedure.input(z.object({ slotId: z.number(), date: z.string().min(10), time: z.string().min(4), customerName: z.string().min(2).max(160), customerPhone: z.string().min(8).max(40), customerEmail: z.string().email().max(320).optional().or(z.literal("")), serviceSummary: z.string().max(1000).optional() })).mutation(async ({ input }) => {
+      const result = await createBooking(input);
+      if (!result.success && result.reason === "database_unavailable") {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "A agenda não está conectada ao banco de dados. Configure a persistência no servidor e tente novamente." });
+      }
+      return result;
+    }),
   }),
   admin: router({
     dashboard: adminProcedure.query(async () => ({ services: await listServices(true), slots: await listSlots(), bookings: await listBookings() })),
