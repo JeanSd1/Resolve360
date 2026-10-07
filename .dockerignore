@@ -5,3 +5,4 @@ dist
 .env.*
 .manus-logs
 *.manus-starter-*
+jeantech/
