@@ -37,7 +37,7 @@ export default function AdminPanel() {
     try {
       if (authMode === "login") await signIn(email, password);
       else if (authMode === "signup") { const result = await signUp(email, password); setAuthMessage(result.session ? "Conta criada. A validar acesso…" : "Conta criada. Verifique o seu e-mail para confirmar o acesso."); }
-      else if (authMode === "forgot") { await requestPasswordReset(email, `${window.location.origin}/admin?mode=reset`); setAuthMessage("Se esse e-mail estiver cadastrado, você receberá um link para redefinir a senha."); }
+      else if (authMode === "forgot") { await requestPasswordReset(email, "https://resolve360-ugua.onrender.com/admin?mode=reset"); setAuthMessage("Se esse e-mail estiver cadastrado, você receberá um link para redefinir a senha."); }
       else { await updatePassword(password); await signOut(); window.history.replaceState({}, "", "/admin"); setAuthMode("login"); setPassword(""); setAuthMessage("Senha atualizada. Entre com a nova senha."); }
     } catch { /* o hook apresenta o erro de autenticação */ }
   };
