@@ -19,6 +19,8 @@ export function useSupabaseAuth() {
   }, []);
   const signIn = async (email: string, password: string) => { setError(""); if (!isSupabaseConfigured) { const error = new Error("Configure SUPABASE_URL e SUPABASE_ANON_KEY para entrar."); setError(error.message); throw error; } const result = await supabase.auth.signInWithPassword({ email, password }); if (result.error) { setError(result.error.message); throw result.error; } return result.data; };
   const signUp = async (email: string, password: string) => { setError(""); if (!isSupabaseConfigured) { const error = new Error("Configure SUPABASE_URL e SUPABASE_ANON_KEY para criar uma conta."); setError(error.message); throw error; } const result = await supabase.auth.signUp({ email, password }); if (result.error) { setError(result.error.message); throw result.error; } return result.data; };
+  const requestPasswordReset = async (email: string, redirectTo: string) => { setError(""); if (!isSupabaseConfigured) { const error = new Error("Configure SUPABASE_URL e SUPABASE_ANON_KEY para redefinir a senha."); setError(error.message); throw error; } const result = await supabase.auth.resetPasswordForEmail(email, { redirectTo }); if (result.error) { setError(result.error.message); throw result.error; } return result.data; };
+  const updatePassword = async (password: string) => { setError(""); if (!isSupabaseConfigured) { const error = new Error("Configure SUPABASE_URL e SUPABASE_ANON_KEY para atualizar a senha."); setError(error.message); throw error; } const result = await supabase.auth.updateUser({ password }); if (result.error) { setError(result.error.message); throw result.error; } return result.data; };
   const signOut = () => supabase.auth.signOut();
-  return { session, user, loading, error, signIn, signUp, signOut };
+  return { session, user, loading, error, signIn, signUp, requestPasswordReset, updatePassword, signOut };
 }
