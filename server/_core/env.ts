@@ -14,6 +14,7 @@ export const ENV = {
   get supabaseAnonKey() { return process.env.SUPABASE_ANON_KEY ?? ""; },
   get supabaseServiceRoleKey() { return process.env.SUPABASE_SERVICE_ROLE_KEY ?? ""; },
   get supabaseAdminEmail() { return process.env.SUPABASE_ADMIN_EMAIL ?? ""; },
+  get supabasePasswordResetToken() { return process.env.SUPABASE_PASSWORD_RESET_TOKEN ?? ""; },
   get resendApiKey() { return process.env.RESEND_API_KEY ?? ""; },
   get resendFromEmail() { return process.env.RESEND_FROM_EMAIL ?? ""; },
   get receiptIssuerCpf() { return process.env.RECEIPT_ISSUER_CPF ?? ""; },

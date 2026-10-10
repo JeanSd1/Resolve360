@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { timingSafeEqual } from "node:crypto";
 import express from "express";
 import { createServer } from "http";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
@@ -8,6 +9,10 @@ import { publicPlatformScript } from "./publicConfig";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
+import { isSupabaseConfigured, sbSetAdminPassword } from "../supabase";
+
+let passwordResetInProgress = false;
+let passwordResetUsed = false;
 
 async function startServer() {
   const app = express();
@@ -16,6 +21,37 @@ async function startServer() {
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   app.get("/api/health", (_req, res) => res.json({ status: "ok" }));
+  app.post("/api/admin/password-reset", async (req, res) => {
+    const expectedToken = ENV.supabasePasswordResetToken;
+    if (!ENV.supabaseAdminEmail || !isSupabaseConfigured() || expectedToken.length < 32) {
+      return res.status(503).json({ error: "A redefinição temporária não está configurada." });
+    }
+    if (passwordResetUsed || passwordResetInProgress) {
+      return res.status(410).json({ error: "O token temporário já foi usado." });
+    }
+    const token = typeof req.body?.token === "string" ? req.body.token : "";
+    const password = typeof req.body?.password === "string" ? req.body.password : "";
+    const provided = Buffer.from(token);
+    const expected = Buffer.from(expectedToken);
+    if (provided.length !== expected.length || !timingSafeEqual(provided, expected)) {
+      return res.status(401).json({ error: "Token inválido." });
+    }
+    if (password.length < 12 || password.length > 128) {
+      return res.status(400).json({ error: "Use uma senha com pelo menos 12 caracteres." });
+    }
+    res.set("Cache-Control", "no-store");
+    passwordResetInProgress = true;
+    try {
+      await sbSetAdminPassword(ENV.supabaseAdminEmail, password);
+      passwordResetUsed = true;
+      delete process.env.SUPABASE_PASSWORD_RESET_TOKEN;
+      return res.json({ success: true });
+    } catch (error) {
+      passwordResetInProgress = false;
+      console.error("Admin password reset failed:", error);
+      return res.status(500).json({ error: "Não foi possível atualizar a senha." });
+    }
+  });
   app.get("/api/platform/config.js", (_req, res) => {
     res.set("Cache-Control", "no-store").type("application/javascript").send(publicPlatformScript());
   });

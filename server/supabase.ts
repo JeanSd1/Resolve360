@@ -19,6 +19,17 @@ export async function getSupabaseUser(accessToken: string): Promise<SupabaseUser
   return data.user;
 }
 
+export async function sbSetAdminPassword(email: string, password: string) {
+  const client = getSupabaseAdmin();
+  if (!client) throw new Error("Supabase admin is not configured");
+  const { data, error } = await client.auth.admin.listUsers({ page: 1, perPage: 1000 });
+  if (error) throw error;
+  const user = data.users.find(candidate => candidate.email?.toLowerCase() === email.toLowerCase());
+  if (!user) throw new Error("Admin user was not found");
+  const { error: updateError } = await client.auth.admin.updateUserById(user.id, { password });
+  if (updateError) throw updateError;
+}
+
 function mapService(row: any) {
   return { id: Number(row.id), slug: row.slug, name: row.name, category: row.category, description: row.description, icon: row.icon, priceFrom: row.price_from == null ? null : Number(row.price_from), priceMode: row.price_mode as "fixed" | "from" | "quote", active: Boolean(row.active) };
 }
