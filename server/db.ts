@@ -149,7 +149,7 @@ export async function listBookings() {
   return db.select().from(bookings).orderBy(desc(bookings.date), desc(bookings.time)).limit(40);
 }
 
-export async function setBookingStatus(id: number, status: "pending" | "confirmed" | "cancelled") {
+export async function setBookingStatus(id: number, status: "pending" | "confirmed" | "cancelled" | "completed") {
   const updatedInSupabase = await sbSetBookingStatus(id, status);
   if (updatedInSupabase) return;
   const db = await getDb();

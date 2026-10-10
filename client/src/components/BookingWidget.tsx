@@ -5,9 +5,16 @@ import { trpc } from "@/lib/trpc";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 
 function formatDate(value: string) { return new Intl.DateTimeFormat("pt-BR", { weekday: "short", day: "2-digit", month: "short" }).format(new Date(`${value}T12:00:00`)); }
+function getLocalDateTime() {
+  const now = new Date();
+  const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const time = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  return { date, time };
+}
 
 export default function BookingWidget() {
-  const availabilityQuery = trpc.availability.list.useQuery(undefined, { staleTime: 30_000 });
+  const today = getLocalDateTime();
+  const availabilityQuery = trpc.availability.list.useQuery({ fromDate: today.date }, { staleTime: 30_000 });
   const bookingMutation = trpc.bookings.create.useMutation();
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedSlot, setSelectedSlot] = useState<{ id: number; date: string; time: string } | null>(null);
@@ -21,9 +28,10 @@ export default function BookingWidget() {
     return () => { void supabase.removeChannel(channel); };
   }, [availabilityQuery]);
   const slots = availabilityQuery.data ?? [];
-  const dates = useMemo(() => Array.from(new Set(slots.filter(slot => slot.status === "available").map(slot => slot.date))), [slots]);
-  const date = selectedDate || dates[0] || "";
-  const daySlots = slots.filter(slot => slot.date === date && slot.status === "available");
+  const availableSlots = useMemo(() => slots.filter(slot => slot.status === "available" && (slot.date > today.date || (slot.date === today.date && slot.time > today.time))), [slots, today.date, today.time]);
+  const dates = useMemo(() => Array.from(new Set(availableSlots.map(slot => slot.date))), [availableSlots]);
+  const date = dates.includes(selectedDate) ? selectedDate : dates[0] || "";
+  const daySlots = availableSlots.filter(slot => slot.date === date);
   const confirm = async () => {
     if (!selectedSlot || !name.trim() || phone.trim().length < 8) return;
     setBookingError("");

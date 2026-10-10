@@ -47,7 +47,7 @@ export const appRouter = router({
     saveService: adminProcedure.input(serviceInput).mutation(({ input }) => saveService(input)),
     saveSlot: adminProcedure.input(z.object({ id: z.number().optional(), date: z.string().length(10), time: z.string().length(5), status: z.enum(["available", "blocked", "booked"]), note: z.string().max(255).optional() })).mutation(({ input }) => saveSlot(input)),
     blockSlot: adminProcedure.input(z.object({ id: z.number() })).mutation(({ input }) => removeSlot(input.id)),
-    setBookingStatus: adminProcedure.input(z.object({ id: z.number(), status: z.enum(["pending", "confirmed", "cancelled"]) })).mutation(({ input }) => setBookingStatus(input.id, input.status)),
+    setBookingStatus: adminProcedure.input(z.object({ id: z.number(), status: z.enum(["pending", "confirmed", "cancelled", "completed"]) })).mutation(({ input }) => setBookingStatus(input.id, input.status)),
     sendReceipt: adminProcedure.input(z.object({
       customerName: z.string().trim().min(2).max(160),
       customerEmail: z.string().trim().email().max(320),

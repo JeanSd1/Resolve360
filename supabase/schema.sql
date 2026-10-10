@@ -41,7 +41,7 @@ create table if not exists public.bookings (
   customer_phone text not null,
   customer_email text,
   service_summary text,
-  status text not null default 'pending' check (status in ('pending','confirmed','cancelled')),
+  status text not null default 'pending' check (status in ('pending','confirmed','cancelled','completed')),
   created_at timestamptz not null default now()
 );
 

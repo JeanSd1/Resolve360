@@ -31,6 +31,13 @@ describe("public availability and booking", () => {
     expect(mocked.listSlots).toHaveBeenCalledOnce();
   });
 
+  it("passes the requested start date to the availability query", async () => {
+    mocked.listSlots.mockResolvedValue([]);
+
+    await expect(caller.availability.list({ fromDate: "2026-10-10" })).resolves.toEqual([]);
+    expect(mocked.listSlots).toHaveBeenCalledWith("2026-10-10", undefined);
+  });
+
   it("reports unavailable persistence instead of accepting a lost booking", async () => {
     mocked.createBooking.mockResolvedValue({ success: false, reason: "database_unavailable" });
 

@@ -95,7 +95,7 @@ export async function sbListBookings() {
   if (error) throw error;
   return (data ?? []).map(row => ({ id: Number(row.id), slotId: Number(row.slot_id), date: String(row.date).slice(0, 10), time: row.time, customerName: row.customer_name, customerPhone: row.customer_phone, customerEmail: row.customer_email, serviceSummary: row.service_summary, status: row.status, createdAt: row.created_at }));
 }
-export async function sbSetBookingStatus(id: number, status: "pending" | "confirmed" | "cancelled") {
+export async function sbSetBookingStatus(id: number, status: "pending" | "confirmed" | "cancelled" | "completed") {
   const client = getSupabaseAdmin(); if (!client) return false;
   const { data: current, error: lookupError } = await client.from("bookings").select("slot_id").eq("id", id).single();
   if (lookupError) throw lookupError;

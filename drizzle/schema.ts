@@ -58,7 +58,7 @@ export const bookings = mysqlTable("bookings", {
   customerPhone: varchar("customerPhone", { length: 40 }).notNull(),
   customerEmail: varchar("customerEmail", { length: 320 }),
   serviceSummary: text("serviceSummary"),
-  status: mysqlEnum("status", ["pending", "confirmed", "cancelled"]).default("pending").notNull(),
+  status: mysqlEnum("status", ["pending", "confirmed", "cancelled", "completed"]).default("pending").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
