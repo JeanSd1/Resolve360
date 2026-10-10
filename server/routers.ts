@@ -44,6 +44,7 @@ export const appRouter = router({
   }),
   admin: router({
     dashboard: adminProcedure.query(async () => ({ services: await listServices(true), slots: await listSlots(), bookings: await listBookings() })),
+    bookingHistory: adminProcedure.input(z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional() })).query(({ input }) => listBookings(input.date)),
     saveService: adminProcedure.input(serviceInput).mutation(({ input }) => saveService(input)),
     saveSlot: adminProcedure.input(z.object({ id: z.number().optional(), date: z.string().length(10), time: z.string().length(5), status: z.enum(["available", "blocked", "booked"]), note: z.string().max(255).optional() })).mutation(({ input }) => saveSlot(input)),
     blockSlot: adminProcedure.input(z.object({ id: z.number() })).mutation(({ input }) => removeSlot(input.id)),

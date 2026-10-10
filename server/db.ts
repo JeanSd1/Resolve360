@@ -141,12 +141,15 @@ export async function createBooking(input: { slotId: number; date: string; time:
   });
 }
 
-export async function listBookings() {
-  const supabaseRows = await sbListBookings();
+export async function listBookings(date?: string) {
+  const supabaseRows = await sbListBookings(date);
   if (supabaseRows !== null) return supabaseRows;
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(bookings).orderBy(desc(bookings.date), desc(bookings.time)).limit(40);
+  const query = db.select().from(bookings);
+  return (date ? query.where(eq(bookings.date, date)) : query)
+    .orderBy(desc(bookings.date), desc(bookings.time))
+    .limit(date ? 1000 : 40);
 }
 
 export async function setBookingStatus(id: number, status: "pending" | "confirmed" | "cancelled" | "completed") {

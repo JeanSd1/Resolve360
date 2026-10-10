@@ -18,16 +18,24 @@ export default function AdminPanel() {
   const [password, setPassword] = useState("");
   const [resetToken, setResetToken] = useState("");
   const [authMessage, setAuthMessage] = useState("");
+  const [statusError, setStatusError] = useState("");
+  const [historyDate, setHistoryDate] = useState("");
   const dashboardQuery = trpc.admin.dashboard.useQuery(undefined, { enabled: Boolean(session), retry: false });
+  const bookingHistoryQuery = trpc.admin.bookingHistory.useQuery({ date: historyDate || undefined }, { enabled: Boolean(session), retry: false });
   const saveService = trpc.admin.saveService.useMutation({ onSuccess: () => dashboardQuery.refetch() });
   const saveSlot = trpc.admin.saveSlot.useMutation({ onSuccess: () => dashboardQuery.refetch() });
   const blockSlot = trpc.admin.blockSlot.useMutation({ onSuccess: () => dashboardQuery.refetch() });
-  const setBookingStatus = trpc.admin.setBookingStatus.useMutation({ onSuccess: () => dashboardQuery.refetch() });
+  const setBookingStatus = trpc.admin.setBookingStatus.useMutation({
+    onSuccess: () => { setStatusError(""); void dashboardQuery.refetch(); void bookingHistoryQuery.refetch(); },
+    onError: error => setStatusError(error.message),
+  });
   const [serviceForm, setServiceForm] = useState<ServiceForm>(emptyService);
   const [slotForm, setSlotForm] = useState({ date: "", time: "09:00" });
   const services = dashboardQuery.data?.services ?? [];
   const slots = dashboardQuery.data?.slots ?? [];
   const bookings = dashboardQuery.data?.bookings ?? [];
+  const receivedBookings = bookings.filter(booking => booking.status !== "completed");
+  const completedHistory = (bookingHistoryQuery.data ?? []).filter(booking => booking.status === "completed");
   const upcomingSlots = useMemo(() => slots.filter(slot => slot.status !== "blocked").slice(0, 16), [slots]);
 
   useEffect(() => {
@@ -367,7 +375,7 @@ export default function AdminPanel() {
           <Clock3 className="text-blue-500" size={20} />
         </div>
         <div className="admin-table">
-          {bookings.map(booking => (
+          {receivedBookings.map(booking => (
             <div className="admin-row booking-row" key={booking.id}>
               <div>
                 <strong>
@@ -380,12 +388,13 @@ export default function AdminPanel() {
               <select
                 className="status-select"
                 value={booking.status}
-                onChange={event =>
+                onChange={event => {
+                  setStatusError("");
                   setBookingStatus.mutate({
                     id: booking.id,
                     status: event.target.value as "pending" | "confirmed" | "cancelled" | "completed",
-                  })
-                }
+                  });
+                }}
               >
                 <option value="pending">pendente</option>
                 <option value="confirmed">confirmada</option>
@@ -394,8 +403,34 @@ export default function AdminPanel() {
               </select>
             </div>
           ))}
-          {!bookings.length && <p className="empty-state">Nenhuma reserva recebida ainda.</p>}
+          {!receivedBookings.length && <p className="empty-state">Nenhuma reserva em aberto.</p>}
         </div>
+        {statusError && <p className="receipt-notice receipt-notice-error" role="alert">Não foi possível atualizar o status: {statusError}</p>}
+      </section>
+      <section className="admin-card mt-6">
+        <div className="admin-card-title">
+          <div>
+            <p className="eyebrow text-blue-600">histórico</p>
+            <h2>Atendimentos concluídos</h2>
+          </div>
+          <span className="admin-count">{completedHistory.length}</span>
+        </div>
+        <div className="admin-form">
+          <input aria-label="Filtrar histórico por dia" type="date" value={historyDate} onChange={event => setHistoryDate(event.target.value)} />
+        </div>
+        {bookingHistoryQuery.isLoading ? <p className="mt-4 text-sm text-slate-500">Carregando histórico…</p> : bookingHistoryQuery.isError ? <p className="receipt-notice receipt-notice-error" role="alert">Não foi possível carregar o histórico.</p> : (
+          <div className="admin-table">
+            {completedHistory.map(booking => (
+              <div className="admin-row" key={booking.id}>
+                <div>
+                  <strong>{booking.customerName} · {booking.date.split("-").reverse().join("/")} às {booking.time}</strong>
+                  <small>{booking.serviceSummary || "Atendimento concluído"} · {booking.customerPhone}</small>
+                </div>
+              </div>
+            ))}
+            {!completedHistory.length && <p className="empty-state">Nenhum atendimento concluído{historyDate ? " neste dia" : " ainda"}.</p>}
+          </div>
+        )}
       </section>
       <p className="mt-8 flex items-center gap-2 text-xs text-slate-400">
         <Check size={14} className="text-lime-600" /> Dados guardados no Supabase · atualizações em tempo real · sessão por e-mail e senha

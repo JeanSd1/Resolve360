@@ -89,9 +89,11 @@ export async function sbCreateBooking(input: { slotId: number; date: string; tim
   if (error) { await client.from("availability_slots").update({ status: "available" }).eq("id", input.slotId); throw error; }
   return { success: true as const, id: Number(data.id) };
 }
-export async function sbListBookings() {
+export async function sbListBookings(date?: string) {
   const client = getSupabaseAdmin(); if (!client) return null;
-  const { data, error } = await client.from("bookings").select("*").order("date", { ascending: false }).order("time", { ascending: false }).limit(40);
+  let query = client.from("bookings").select("*").order("date", { ascending: false }).order("time", { ascending: false });
+  if (date) query = query.eq("date", date);
+  const { data, error } = await query.limit(date ? 1000 : 40);
   if (error) throw error;
   return (data ?? []).map(row => ({ id: Number(row.id), slotId: Number(row.slot_id), date: String(row.date).slice(0, 10), time: row.time, customerName: row.customer_name, customerPhone: row.customer_phone, customerEmail: row.customer_email, serviceSummary: row.service_summary, status: row.status, createdAt: row.created_at }));
 }
