@@ -17,5 +17,7 @@ export const ENV = {
   get supabasePasswordResetToken() { return process.env.SUPABASE_PASSWORD_RESET_TOKEN ?? ""; },
   get resendApiKey() { return process.env.RESEND_API_KEY ?? ""; },
   get resendFromEmail() { return process.env.RESEND_FROM_EMAIL ?? ""; },
+  get gmailSmtpUser() { return process.env.GMAIL_SMTP_USER ?? ""; },
+  get gmailSmtpAppPassword() { return process.env.GMAIL_SMTP_APP_PASSWORD ?? ""; },
   get receiptIssuerCpf() { return process.env.RECEIPT_ISSUER_CPF ?? ""; },
 };

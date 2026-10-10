@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import nodemailer from "nodemailer";
 import PDFDocument from "pdfkit";
 import { TRPCError } from "@trpc/server";
 import { CONTACT } from "@shared/const";
@@ -86,10 +87,10 @@ function escapeHtml(value: string) {
 }
 
 export async function sendReceipt(input: ReceiptInput) {
-  if (!ENV.resendApiKey || !ENV.resendFromEmail) {
+  if (!ENV.gmailSmtpUser || !ENV.gmailSmtpAppPassword) {
     throw new TRPCError({
       code: "PRECONDITION_FAILED",
-      message: "Configure RESEND_API_KEY e RESEND_FROM_EMAIL no Render para enviar recibos.",
+      message: "Configure GMAIL_SMTP_USER e GMAIL_SMTP_APP_PASSWORD no Render para enviar recibos.",
     });
   }
   if (!ENV.receiptIssuerCpf) {
@@ -107,41 +108,30 @@ export async function sendReceipt(input: ReceiptInput) {
     issuerCpf,
     receiptNumber,
   });
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${ENV.resendApiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from: ENV.resendFromEmail,
-      to: [input.customerEmail],
-      reply_to: CONTACT.email,
+  const transporter = nodemailer.createTransport({
+    host: "smtp.gmail.com",
+    port: 465,
+    secure: true,
+    auth: { user: ENV.gmailSmtpUser, pass: ENV.gmailSmtpAppPassword },
+    connectionTimeout: 15_000,
+    greetingTimeout: 15_000,
+    socketTimeout: 15_000,
+  });
+  try {
+    await transporter.sendMail({
+      from: { name: CONTACT.name, address: ENV.gmailSmtpUser },
+      to: input.customerEmail,
+      replyTo: CONTACT.email,
       subject: `Recibo de prestação de serviços ${receiptNumber}`,
       html: `<p>Olá, ${escapeHtml(input.customerName)}.</p><p>Segue em anexo o recibo do serviço realizado em ${formatDate(input.paidAt)}.</p><p>Atenciosamente,<br />${escapeHtml(CONTACT.name)}</p>`,
-      attachments: [{ filename: `recibo-${receiptNumber}.pdf`, content: pdf.toString("base64") }],
-    }),
-    signal: AbortSignal.timeout(15_000),
-  }).catch(error => {
-    console.error("[Receipts] Failed to contact Resend", error);
-    throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Não foi possível conectar ao serviço de e-mail. Tente novamente." });
-  });
-
-  if (!response.ok) {
-    const responseBody = await response.text();
-    let providerMessage = responseBody;
-    try {
-      const parsed = JSON.parse(responseBody) as { message?: unknown; name?: unknown };
-      if (typeof parsed.message === "string") providerMessage = parsed.message;
-      else if (typeof parsed.name === "string") providerMessage = parsed.name;
-    } catch {
-      providerMessage = responseBody;
-    }
-    const detail = providerMessage.replace(/\s+/g, " ").slice(0, 400) || "sem detalhes do provedor";
-    console.error(`[Receipts] Resend returned HTTP ${response.status}: ${detail}`);
+      attachments: [{ filename: `recibo-${receiptNumber}.pdf`, content: pdf, contentType: "application/pdf" }],
+    });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message.replace(/\s+/g, " ").slice(0, 300) : "erro desconhecido";
+    console.error(`[Receipts] Gmail SMTP failed: ${detail}`);
     throw new TRPCError({
       code: "INTERNAL_SERVER_ERROR",
-      message: `Resend recusou o envio (HTTP ${response.status}): ${detail}`,
+      message: `Falha ao enviar recibo pelo Gmail: ${detail}`,
     });
   }
 

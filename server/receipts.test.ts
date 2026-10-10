@@ -1,4 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+const mocked = vi.hoisted(() => ({ createTransport: vi.fn() }));
+
+vi.mock("nodemailer", () => ({ default: { createTransport: mocked.createTransport } }));
+
 import { sendReceipt, type ReceiptInput } from "./receipts";
 
 const receiptInput: ReceiptInput = {
@@ -12,81 +16,67 @@ const receiptInput: ReceiptInput = {
 
 afterEach(() => {
   vi.unstubAllEnvs();
-  vi.unstubAllGlobals();
+  mocked.createTransport.mockReset();
 });
 
 describe("receipt email delivery", () => {
-  it("creates a PDF and sends it as an attachment through Resend", async () => {
-    vi.stubEnv("RESEND_API_KEY", "test-resend-key");
-    vi.stubEnv("RESEND_FROM_EMAIL", "JD Tech Solutions <onboarding@resend.dev>");
+  it("sends a PDF directly to the customer's email through Gmail SMTP", async () => {
+    vi.stubEnv("GMAIL_SMTP_USER", "jean.d.serres@gmail.com");
+    vi.stubEnv("GMAIL_SMTP_APP_PASSWORD", "test-app-password");
     vi.stubEnv("RECEIPT_ISSUER_CPF", "01295755009");
-    const request = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({ id: "email-id" }), { status: 200 }));
-    vi.stubGlobal("fetch", request);
+    const sendMail = vi.fn().mockResolvedValue({ messageId: "email-id" });
+    mocked.createTransport.mockReturnValue({ sendMail });
 
     const result = await sendReceipt(receiptInput);
 
     expect(result.receiptNumber).toMatch(/^2026-[A-F0-9]{12}$/);
-    expect(request).toHaveBeenCalledOnce();
-    const body = JSON.parse(String(request.mock.calls[0]?.[1]?.body));
-    expect(body).toMatchObject({ to: [receiptInput.customerEmail], reply_to: "jean.d.serres@gmail.com" });
-    const pdf = Buffer.from(body.attachments[0].content, "base64");
+    expect(mocked.createTransport).toHaveBeenCalledWith(expect.objectContaining({
+      host: "smtp.gmail.com",
+      port: 465,
+      secure: true,
+      auth: { user: "jean.d.serres@gmail.com", pass: "test-app-password" },
+    }));
+    expect(sendMail).toHaveBeenCalledOnce();
+    const message = sendMail.mock.calls[0]?.[0];
+    expect(message).toMatchObject({ to: receiptInput.customerEmail, replyTo: "jean.d.serres@gmail.com" });
+    const pdf = message.attachments[0].content as Buffer;
     expect(pdf.subarray(0, 5).toString()).toBe("%PDF-");
-    expect(body.attachments[0].filename).toBe(`recibo-${result.receiptNumber}.pdf`);
+    expect(message.attachments[0].filename).toBe(`recibo-${result.receiptNumber}.pdf`);
   });
 
-  it("refuses to send when the sender credentials are not configured", async () => {
-    vi.stubEnv("RESEND_API_KEY", "");
-    vi.stubEnv("RESEND_FROM_EMAIL", "");
+  it("refuses to send when Gmail credentials are not configured", async () => {
+    vi.stubEnv("GMAIL_SMTP_USER", "");
+    vi.stubEnv("GMAIL_SMTP_APP_PASSWORD", "");
     vi.stubEnv("RECEIPT_ISSUER_CPF", "01295755009");
-    const request = vi.fn<typeof fetch>();
-    vi.stubGlobal("fetch", request);
 
-    await expect(sendReceipt(receiptInput)).rejects.toThrow("Configure RESEND_API_KEY e RESEND_FROM_EMAIL");
-    expect(request).not.toHaveBeenCalled();
+    await expect(sendReceipt(receiptInput)).rejects.toThrow("Configure GMAIL_SMTP_USER e GMAIL_SMTP_APP_PASSWORD");
+    expect(mocked.createTransport).not.toHaveBeenCalled();
   });
 
-  it("rejects invalid CPF values without contacting Resend", async () => {
-    vi.stubEnv("RESEND_API_KEY", "test-resend-key");
-    vi.stubEnv("RESEND_FROM_EMAIL", "JD Tech Solutions <onboarding@resend.dev>");
+  it("rejects invalid CPF values without contacting Gmail SMTP", async () => {
+    vi.stubEnv("GMAIL_SMTP_USER", "jean.d.serres@gmail.com");
+    vi.stubEnv("GMAIL_SMTP_APP_PASSWORD", "test-app-password");
     vi.stubEnv("RECEIPT_ISSUER_CPF", "01295755009");
-    const request = vi.fn<typeof fetch>();
-    vi.stubGlobal("fetch", request);
 
     await expect(sendReceipt({ ...receiptInput, customerCpf: "111.111.111-11" })).rejects.toThrow("CPF válido");
-    expect(request).not.toHaveBeenCalled();
+    expect(mocked.createTransport).not.toHaveBeenCalled();
   });
 
-  it("reports provider errors instead of showing a successful send", async () => {
-    vi.stubEnv("RESEND_API_KEY", "test-resend-key");
-    vi.stubEnv("RESEND_FROM_EMAIL", "JD Tech Solutions <onboarding@resend.dev>");
+  it("reports Gmail SMTP errors instead of showing a successful send", async () => {
+    vi.stubEnv("GMAIL_SMTP_USER", "jean.d.serres@gmail.com");
+    vi.stubEnv("GMAIL_SMTP_APP_PASSWORD", "test-app-password");
     vi.stubEnv("RECEIPT_ISSUER_CPF", "01295755009");
-    vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockResolvedValue(new Response("", { status: 422 })));
+    mocked.createTransport.mockReturnValue({ sendMail: vi.fn().mockRejectedValue(new Error("Invalid login")) });
 
-    await expect(sendReceipt(receiptInput)).rejects.toThrow("Resend recusou o envio (HTTP 422):");
+    await expect(sendReceipt(receiptInput)).rejects.toThrow("Falha ao enviar recibo pelo Gmail: Invalid login");
   });
 
   it("refuses to send when the provider CPF has not been configured", async () => {
-    vi.stubEnv("RESEND_API_KEY", "test-resend-key");
-    vi.stubEnv("RESEND_FROM_EMAIL", "JD Tech Solutions <onboarding@resend.dev>");
+    vi.stubEnv("GMAIL_SMTP_USER", "jean.d.serres@gmail.com");
+    vi.stubEnv("GMAIL_SMTP_APP_PASSWORD", "test-app-password");
     vi.stubEnv("RECEIPT_ISSUER_CPF", "");
-    const request = vi.fn<typeof fetch>();
-    vi.stubGlobal("fetch", request);
 
     await expect(sendReceipt(receiptInput)).rejects.toThrow("Configure RECEIPT_ISSUER_CPF");
-    expect(request).not.toHaveBeenCalled();
-  });
-
-  it("includes the provider's reason when Resend rejects a request", async () => {
-    vi.stubEnv("RESEND_API_KEY", "test-resend-key");
-    vi.stubEnv("RESEND_FROM_EMAIL", "JD Tech Solutions <onboarding@resend.dev>");
-    vi.stubEnv("RECEIPT_ISSUER_CPF", "01295755009");
-    vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({
-      message: "You can only send testing emails to your own email address",
-      name: "validation_error",
-    }), { status: 403 })));
-
-    await expect(sendReceipt(receiptInput)).rejects.toThrow(
-      "Resend recusou o envio (HTTP 403): You can only send testing emails to your own email address",
-    );
+    expect(mocked.createTransport).not.toHaveBeenCalled();
   });
 });
